@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import requests
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import time
 
 app = FastAPI()
 
@@ -16,6 +17,7 @@ XI_API_KEY = "sk_c6c4356ddace668cd51bf698c4db0cab0daac35ca3c432a7"
 VOICE_ID = "9BWtsMINqrJLrRacOk9x"
 OUTPUT_PATH = "output.mp3"
 CHUNK_SIZE = 1024
+image_api_key = "5JKBQ0GMfj2ujVa8VzYObwcl2tgjrw"
 
 
 # Pydantic Models
@@ -205,3 +207,101 @@ def convert_text_to_speech(text_to_speak):
         return OUTPUT_PATH
     else:
         raise Exception(f"Error generating speech: {response.text}")
+
+
+class ImageRequest(BaseModel):
+    text: str
+
+
+@app.post("/generate-image/")
+def generate_image(request: ImageRequest):
+    """
+    Generate an image based on the provided summary text.
+    """
+    try:
+        prompt = request.text[:500]
+
+        image_urls = generate_image_urls(image_api_key, prompt)
+
+        if not image_urls or all(url is None for url in image_urls):
+            raise HTTPException(status_code=500, detail="Image generation failed. No valid URLs received.")
+
+        return {"image_urls": image_urls}
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Network error: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
+
+
+def generate_image_urls(api_key, prompt):
+    """
+    Main function to handle the image generation process and retrieve the image URLs.
+    """
+    try:
+        response_json = image_post_function(api_key, prompt)
+        if not response_json or "id" not in response_json:
+            raise Exception("Error in image generation request.")
+
+        request_id = response_json["id"]
+
+        retries = 10 
+        for _ in range(retries):
+            response_image_json = image_get_function(request_id, api_key)
+
+            image_urls = [
+                image.get("url") for image in response_image_json.get("images", [])
+            ]
+
+            if image_urls and all(url is not None for url in image_urls):
+                return image_urls
+
+            time.sleep(3)  
+
+        raise Exception("Image generation timed out after multiple retries.")
+    except Exception as e:
+        print(f"Error in generating image: {e}")
+        return []
+
+
+def image_post_function(api_key, prompt):
+    """
+    Send a POST request to initiate image creation using the StarryAI API.
+    """
+    url = "https://api.starryai.com/creations/"
+    headers = {
+        "X-API-Key": api_key,
+        "content-type": "application/json",
+        "accept": "application/json"
+    }
+    payload = {
+        "prompt": prompt,
+        "model": "lyra",
+        "aspectRatio": "square",
+        "images": 1,
+        "steps": 15,
+        "initialImageMode": "color"
+    }
+    response = requests.post(url, json=payload, headers=headers)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"Error in POST request: {response.status_code} - {response.text}")
+        return None
+
+
+def image_get_function(request_id, api_key):
+    """
+    Send a GET request to retrieve image URLs using the request ID.
+    """
+    url = f"https://api.starryai.com/creations/{request_id}"
+    headers = {
+        "accept": "application/json",
+        "X-API-Key": api_key
+    }
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"Error in GET request: {response.status_code} - {response.text}")
+        return {}
+
