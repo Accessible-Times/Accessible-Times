@@ -1,11 +1,16 @@
 import streamlit as st
 import requests
+from dotenv import load_dotenv
+import os
 
-# Backend API endpoints
-BASE_URL = "http://127.0.0.1:8000"
-FETCH_SUMMARIZE_ENDPOINT = "/fetch-and-summarize/"
-TTS_ENDPOINT = "/text-to-speech/"
-IMAGE_GEN_ENDPOINT = "/generate-image/"
+# Load environment variables from .env file
+load_dotenv()
+
+# Fetch API URLs from environment variables
+BASE_URL = os.getenv("BASE_URL")
+FETCH_SUMMARIZE_ENDPOINT = os.getenv("FETCH_SUMMARIZE_ENDPOINT")
+TTS_ENDPOINT = os.getenv("TTS_ENDPOINT")
+IMAGE_GEN_ENDPOINT = os.getenv("IMAGE_GEN_ENDPOINT")
 
 # Function to fetch and summarize news
 def fetch_and_summarize(query, tone, platform, language="en"):
@@ -54,6 +59,10 @@ def generate_image_from_summary(text):
         st.error(f"Failed to connect to the backend: {e}")
         return []
 
+# Initialize session state for storing the summary
+if "news_summary" not in st.session_state:
+    st.session_state["news_summary"] = ""
+
 # App title and description
 st.markdown("<h1 style='text-align: center; font-size: 45px;'>Accessible Times</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; font-size: 20px;'>An AI-powered news summarizer and text-to-speech app for daily updates</p>", unsafe_allow_html=True)
@@ -73,6 +82,9 @@ if st.button("Generate"):
     if query:
         result = fetch_and_summarize(query, tone, platform)
         if result:
+            # Store the summary in session state
+            st.session_state["news_summary"] = result["summary"]
+
             # Display news summary
             st.subheader("News Summary:")
             st.write(result["summary"])
@@ -84,23 +96,25 @@ if st.button("Generate"):
                 st.markdown(f"{article['description']}")
                 st.markdown(f"[Read more]({article['url']})", unsafe_allow_html=True)
 
-            # Convert summary to speech
-            if st.button("Convert Summary to Speech"):
-                audio_file_path = convert_text_to_speech(result["summary"])
-                if audio_file_path:
-                    st.audio(audio_file_path, format="audio/mp3")
-                else:
-                    st.error("Failed to generate speech audio.")
-
-            # Generate image from summary
-            if st.button("Generate Image from Summary"):
-                image_urls = generate_image_from_summary(result["summary"])
-                if image_urls:
-                    st.subheader("Generated Image:")
-                    for url in image_urls:
-                        st.image(url)
-                else:
-                    st.error("Failed to generate image.")
     else:
         st.error("Please enter a news query.")
 
+# Convert summary to speech button
+if st.session_state["news_summary"]:
+    if st.button("Convert Summary to Speech"):
+        audio_file_path = convert_text_to_speech(st.session_state["news_summary"])
+        if audio_file_path:
+            st.audio(audio_file_path, format="audio/mp3")
+        else:
+            st.error("Failed to generate speech audio.")
+
+# Generate image from summary button
+if st.session_state["news_summary"]:
+    if st.button("Generate Image from Summary"):
+        image_urls = generate_image_from_summary(st.session_state["news_summary"])
+        if image_urls:
+            st.subheader("Generated Image:")
+            for url in image_urls:
+                st.image(url)
+        else:
+            st.error("Failed to generate image.")
