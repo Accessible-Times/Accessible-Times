@@ -5,20 +5,24 @@ import requests
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import time
+from dotenv import load_dotenv
+import os
 
 app = FastAPI()
 
-# Keys and Constants
-VECTARA_API_KEY = "zut_PkP5QQ7kCkke_1lVsz5l1uGuK7OOM0mTNuFgrA"
-VECTARA_CUSTOMER_ID = "1044642113"
-VECTARA_CORPUS_ID = "black-holes-sample-data"
-NEWSAPI_KEY = "e17cc78c8aad4a89a4059f2387df220f"
-XI_API_KEY = "sk_c6c4356ddace668cd51bf698c4db0cab0daac35ca3c432a7"
-VOICE_ID = "9BWtsMINqrJLrRacOk9x"
-OUTPUT_PATH = "output.mp3"
-CHUNK_SIZE = 1024
-image_api_key = "5JKBQ0GMfj2ujVa8VzYObwcl2tgjrw"
+# Load environment variables from .env file
+load_dotenv()
 
+# Keys and Constants
+VECTARA_API_KEY = os.getenv("VECTARA_API_KEY")
+VECTARA_CUSTOMER_ID = os.getenv("VECTARA_CUSTOMER_ID")
+VECTARA_CORPUS_ID = os.getenv("VECTARA_CORPUS_ID")
+NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
+XI_API_KEY = os.getenv("XI_API_KEY")
+VOICE_ID = os.getenv("VOICE_ID")
+OUTPUT_PATH = os.getenv("OUTPUT_PATH")
+CHUNK_SIZE = os.getenv("CHUNK_SIZE")
+IMAGE_API_KEY = os.getenv("STARRYAI_API_KEY")
 
 # Pydantic Models
 class QueryRequest(BaseModel):
@@ -27,10 +31,11 @@ class QueryRequest(BaseModel):
     tone: str = "neutral"
     platform: str = "general"
 
+class ImageRequest(BaseModel):
+    text: str
 
 class TTSRequest(BaseModel):
     text: str
-
 
 @app.post("/fetch-and-summarize/")
 def fetch_and_summarize(request: QueryRequest):
@@ -208,11 +213,6 @@ def convert_text_to_speech(text_to_speak):
     else:
         raise Exception(f"Error generating speech: {response.text}")
 
-
-class ImageRequest(BaseModel):
-    text: str
-
-
 @app.post("/generate-image/")
 def generate_image(request: ImageRequest):
     """
@@ -221,7 +221,7 @@ def generate_image(request: ImageRequest):
     try:
         prompt = request.text[:500]
 
-        image_urls = generate_image_urls(image_api_key, prompt)
+        image_urls = generate_image_urls(IMAGE_API_KEY, prompt)
 
         if not image_urls or all(url is None for url in image_urls):
             raise HTTPException(status_code=500, detail="Image generation failed. No valid URLs received.")
