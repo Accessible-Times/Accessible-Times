@@ -21,7 +21,7 @@ NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
 XI_API_KEY = os.getenv("XI_API_KEY")
 VOICE_ID = os.getenv("VOICE_ID")
 OUTPUT_PATH = os.getenv("OUTPUT_PATH")
-CHUNK_SIZE = os.getenv("CHUNK_SIZE")
+CHUNK_SIZE = int(os.getenv("CHUNK_SIZE"))
 IMAGE_API_KEY = os.getenv("STARRYAI_API_KEY")
 
 # Pydantic Models
